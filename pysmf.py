@@ -25,7 +25,7 @@ def parse_mapinfo(rawmapinfo):
 		return mapname
 	else:
 		return mapname+' ' +str(mapversion)
-		
+
 def get_smfname(filelist):
 	for zfile in filelist:
 		if 'maps/' in zfile.lower() and zfile.lower().endswith('.smf'):
@@ -33,11 +33,9 @@ def get_smfname(filelist):
 
 #Returns the SpringName of the archive at filepath, or None
 def pysmf(filepath):
-	mapinfofile = None
 	if filepath.lower().endswith('.sd7'):
-		#try:
 		mapfile = py7zr.SevenZipFile(filepath, mode='r')
-		if 'mapinfo.lua' in mapfile.getnames(): # try to exec mapinfo.lua
+		if 'mapinfo.lua' in mapfile.getnames(): 
 			readfiles = mapfile.read(['mapinfo.lua'])
 			mapinfolua = readfiles['mapinfo.lua'].read().decode("utf-8") 
 			return parse_mapinfo(mapinfolua)
