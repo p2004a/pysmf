@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Parses a map file, and returns its Spring Name
 import zipfile
 import py7zr
