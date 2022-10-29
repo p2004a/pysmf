@@ -1,7 +1,11 @@
+#!/usr/bin/env python3
 # Parses a map file, and returns its Spring Name
 import zipfile
 import py7zr
 import lupa
+
+class SmfParseError(Exception):
+	pass
 
 def parse_mapinfo(rawmapinfo):
 	lua = lupa.LuaRuntime(unpack_returned_tuples = True)
@@ -13,25 +17,28 @@ def parse_mapinfo(rawmapinfo):
 							rawmapinfo + '\n end')
 		lua_res = lua_func()
 	except lupa.LuaError as l:
-		print("Failed to execute mapinfo.lua",str(l))
-		return None
+		raise SmfParseError('Failed to execute mapinfo.lua') from l
+
+	if lupa.lua_type(lua_res) != 'table' or not (
+			'modtype' in lua_res and 'version' in lua_res and 'name' in lua_res):
+		raise SmfParseError('mapinfo.lua returned data missing required properties')
 
 	if lua_res['modtype'] != 3:
-		print ("This is not a map, modtype != 3")
-		return None
-	mapversion = lua_res['version']
+		raise SmfParseError(f'This is not a map, modtype != 3, got {lua_res["modtype"]}')
+
+	mapversion = str(lua_res['version'])
 	mapname = lua_res['name']
-	if mapname.endswith(str(mapversion)):
+	if mapname.endswith(mapversion):
 		return mapname
-	else:
-		return mapname+' ' +str(mapversion)
+	return f"{mapname} {mapversion}"
 
 def get_smfname(filelist):
 	for zfile in filelist:
 		if 'maps/' in zfile.lower() and zfile.lower().endswith('.smf'):
 			return zfile.rpartition('/')[2][:-4]
+	raise SmfParseError('failed to find smfname in file list')
 
-#Returns the SpringName of the archive at filepath, or None
+# Returns the SpringName of the archive at filepath
 def pysmf(filepath):
 	if filepath.lower().endswith('.sd7'):
 		mapfile = py7zr.SevenZipFile(filepath, mode='r')
@@ -49,14 +56,23 @@ def pysmf(filepath):
 			return parse_mapinfo(mapinfofile.read())
 		else: # look for .smf file
 			return get_smfname([zipinfo.filename for zipinfo in sdz.infolist()])
-	else:
-		print(filepath, "is not a recognized .sdz or .sd7 archive")
-	return None
+	raise SmfParseError(f'{filepath} is not a recognized .sdz or .sd7 archive')
 
 if __name__ == "__main__":
 	import os
 	import sys
-	for root, dirs, files in os.walk(os.getcwd() if len(sys.argv)<2 else sys.argv[1]):
-		for file in files:
-			if file.lower().endswith('.sd7') or file.lower().endswith('.sdz'):
-				print(file, pysmf(os.path.join(root,file)))
+	import json
+	import traceback
+	try:
+		springname = pysmf(sys.argv[1])
+		print(json.dumps({
+			"springname": springname,
+			"error": None
+		}))
+	except:
+		print(json.dumps({
+			"springname": None,
+			"error": f'Error when extracting name: {str(sys.exc_info()[1])}'
+		}))
+		traceback.print_exc()
+		sys.exit(2)
